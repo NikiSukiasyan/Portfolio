@@ -1,5 +1,18 @@
 import { reverbIR } from '../util/noise.js'
 
+function silentWavUrl(seconds = 1) {
+  const sr = 8000
+  const n = Math.floor(sr * seconds)
+  const buf = new ArrayBuffer(44 + n * 2)
+  const v = new DataView(buf)
+  const ws = (off, s) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)) }
+  ws(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); ws(8, 'WAVE')
+  ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true)
+  v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true)
+  ws(36, 'data'); v.setUint32(40, n * 2, true)
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }))
+}
+
 const semi = (root, n) => root * Math.pow(2, n / 12)
 
 const PROG = [
@@ -29,6 +42,7 @@ export class AudioEngine {
     const AC = window.AudioContext || window.webkitAudioContext
     if (!AC) return
     const ctx = (this.ctx = new AC())
+    this._unlockMedia()
     if (ctx.state === 'suspended') await ctx.resume()
     this.started = true
 
@@ -241,6 +255,21 @@ export class AudioEngine {
     this.tone.frequency.setTargetAtTime(3200 + (pointer.x * 0.5 + 0.5) * 3500, t, 0.5)
     const b = this.breath * 0.5 + 0.5
     this.beat.gain.setTargetAtTime(0.8 + b * 0.15, t, 0.5)
+  }
+
+  _unlockMedia() {
+    if (this._silentEl) return
+    try {
+      const a = new Audio()
+      a.src = silentWavUrl(2)
+      a.loop = true
+      a.volume = 0.0001
+      a.setAttribute('playsinline', '')
+      a.setAttribute('webkit-playsinline', '')
+      const pr = a.play()
+      if (pr && pr.catch) pr.catch(() => {})
+      this._silentEl = a
+    } catch (e) {}
   }
 
   setBreath(v) { this.breath = v }
