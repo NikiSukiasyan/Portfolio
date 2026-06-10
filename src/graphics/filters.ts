@@ -1,11 +1,6 @@
 import { Filter, GlProgram, UniformGroup } from 'pixi.js'
-import { flowNoiseTexture, bayerTexture } from '../util/noise.js'
-
-export const rgb = (n) => new Float32Array([
-  ((n >> 16) & 255) / 255,
-  ((n >> 8) & 255) / 255,
-  (n & 255) / 255,
-])
+import { rgb } from '../shared/color'
+import { flowNoiseTexture, bayerTexture } from './textures'
 
 const VERT = `in vec2 aPosition;
 out vec2 vTextureCoord;
@@ -63,34 +58,6 @@ void main(){
 }
 `
 
-export class GrainFilter {
-  constructor(accent = 0x2be3b0) {
-    this.u = new UniformGroup({
-      uTime: { value: 0, type: 'f32' },
-      uIntensity: { value: 0.075, type: 'f32' },
-      uVignette: { value: 0.9, type: 'f32' },
-      uBreath: { value: 0, type: 'f32' },
-      uAberration: { value: 1.0, type: 'f32' },
-      uScanline: { value: 0.03, type: 'f32' },
-      uResolution: { value: new Float32Array([1, 1]), type: 'vec2<f32>' },
-      uAccent: { value: rgb(accent), type: 'vec3<f32>' },
-    })
-    this.filter = new Filter({
-      glProgram: GlProgram.from({ vertex: VERT, fragment: GRAIN_FRAG, name: 'grain' }),
-      resources: { grainUniforms: this.u },
-    })
-  }
-  get uniforms() { return this.u.uniforms }
-  resize(w, h) { this.uniforms.uResolution[0] = w; this.uniforms.uResolution[1] = h }
-  setAccent(n) { const c = rgb(n); this.uniforms.uAccent.set(c) }
-  update(t, breath, aberration, intensity) {
-    this.uniforms.uTime = t
-    this.uniforms.uBreath = breath
-    if (aberration !== undefined) this.uniforms.uAberration = aberration
-    if (intensity !== undefined) this.uniforms.uIntensity = intensity
-  }
-}
-
 const PHOTO_FRAG = `in vec2 vTextureCoord;
 out vec4 finalColor;
 uniform sampler2D uTexture;
@@ -136,13 +103,85 @@ void main(){
 }
 `
 
+interface GrainUniforms {
+  uTime: number
+  uIntensity: number
+  uVignette: number
+  uBreath: number
+  uAberration: number
+  uScanline: number
+  uResolution: Float32Array
+  uAccent: Float32Array
+}
+
+export class GrainFilter {
+  readonly filter: Filter
+
+  private readonly group: UniformGroup
+
+  constructor(accent = 0x2be3b0) {
+    this.group = new UniformGroup({
+      uTime: { value: 0, type: 'f32' },
+      uIntensity: { value: 0.075, type: 'f32' },
+      uVignette: { value: 0.9, type: 'f32' },
+      uBreath: { value: 0, type: 'f32' },
+      uAberration: { value: 1.0, type: 'f32' },
+      uScanline: { value: 0.03, type: 'f32' },
+      uResolution: { value: new Float32Array([1, 1]), type: 'vec2<f32>' },
+      uAccent: { value: rgb(accent), type: 'vec3<f32>' },
+    })
+    this.filter = new Filter({
+      glProgram: GlProgram.from({ vertex: VERT, fragment: GRAIN_FRAG, name: 'grain' }),
+      resources: { grainUniforms: this.group },
+    })
+  }
+
+  get uniforms(): GrainUniforms {
+    return this.group.uniforms as unknown as GrainUniforms
+  }
+
+  resize(w: number, h: number): void {
+    this.uniforms.uResolution[0] = w
+    this.uniforms.uResolution[1] = h
+  }
+
+  setAccent(value: number): void {
+    this.uniforms.uAccent.set(rgb(value))
+  }
+
+  update(t: number, breath: number, aberration?: number, intensity?: number): void {
+    this.uniforms.uTime = t
+    this.uniforms.uBreath = breath
+    if (aberration !== undefined) this.uniforms.uAberration = aberration
+    if (intensity !== undefined) this.uniforms.uIntensity = intensity
+  }
+}
+
+interface PhotoUniforms {
+  uTime: number
+  uDisplace: number
+  uAberration: number
+  uReveal: number
+  uBands: number
+  uColorMix: number
+  uBreath: number
+  uPointer: Float32Array
+  uColorDark: Float32Array
+  uColorLight: Float32Array
+}
+
 export class PhotoFilter {
-  constructor({ dark = 0x0a0a0c, light = 0xece6d9 } = {}) {
-    this.noiseTex = flowNoiseTexture(256)
-    this.ditherTex = bayerTexture()
-    this.noiseTex.source.style.addressMode = 'repeat'
-    this.ditherTex.source.style.addressMode = 'repeat'
-    this.u = new UniformGroup({
+  readonly filter: Filter
+
+  private readonly group: UniformGroup
+
+  constructor({ dark = 0x0a0a0c, light = 0xece6d9 }: { dark?: number; light?: number } = {}) {
+    const noiseTex = flowNoiseTexture(256)
+    const ditherTex = bayerTexture()
+    noiseTex.source.style.addressMode = 'repeat'
+    ditherTex.source.style.addressMode = 'repeat'
+
+    this.group = new UniformGroup({
       uTime: { value: 0, type: 'f32' },
       uDisplace: { value: 0.012, type: 'f32' },
       uAberration: { value: 1.0, type: 'f32' },
@@ -157,16 +196,30 @@ export class PhotoFilter {
     this.filter = new Filter({
       glProgram: GlProgram.from({ vertex: VERT, fragment: PHOTO_FRAG, name: 'photo' }),
       resources: {
-        photoUniforms: this.u,
-        uNoiseTexture: this.noiseTex.source,
-        uNoiseSampler: this.noiseTex.source.style,
-        uDitherTexture: this.ditherTex.source,
-        uDitherSampler: this.ditherTex.source.style,
+        photoUniforms: this.group,
+        uNoiseTexture: noiseTex.source,
+        uNoiseSampler: noiseTex.source.style,
+        uDitherTexture: ditherTex.source,
+        uDitherSampler: ditherTex.source.style,
       },
     })
   }
-  get uniforms() { return this.u.uniforms }
-  setLight(n) { this.uniforms.uColorLight.set(rgb(n)) }
-  setPointer(x, y) { this.uniforms.uPointer[0] = x; this.uniforms.uPointer[1] = y }
-  update(t, breath) { this.uniforms.uTime = t; this.uniforms.uBreath = breath }
+
+  get uniforms(): PhotoUniforms {
+    return this.group.uniforms as unknown as PhotoUniforms
+  }
+
+  setLight(value: number): void {
+    this.uniforms.uColorLight.set(rgb(value))
+  }
+
+  setPointer(x: number, y: number): void {
+    this.uniforms.uPointer[0] = x
+    this.uniforms.uPointer[1] = y
+  }
+
+  update(t: number, breath: number): void {
+    this.uniforms.uTime = t
+    this.uniforms.uBreath = breath
+  }
 }

@@ -1,6 +1,6 @@
-import { PROJECTS, EMPLOYMENT, STACK, LOCALES, CERTS, EDUCATION, CONTACT } from '../content.js'
+import { PROJECTS, EMPLOYMENT, STACK, LOCALES, CERTS, EDUCATION, CONTACT } from './data/content'
 
-export function renderFallback(ui) {
+export function renderFallback(ui: HTMLElement): void {
   const emp = EMPLOYMENT.map((e) => `<div class="d-emp"><strong>${e.company}</strong><span>${e.role}</span><em>${e.period}</em></div>`).join('')
   const projs = PROJECTS.map((p) => `
     <div class="d-job">

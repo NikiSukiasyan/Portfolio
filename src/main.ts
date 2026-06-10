@@ -1,17 +1,28 @@
-import { Application, Assets } from 'pixi.js'
-import gsap from 'gsap'
-import { ENV, makePerfGuard } from './core/env.js'
-import { PointerState } from './core/pointer.js'
-import { Stage } from './core/stage.js'
-import { AudioEngine } from './core/audio.js'
-import { Cursor } from './core/cursor.js'
-import { Director } from './core/director.js'
-import { Boot } from './core/boot.js'
-import { renderFallback } from './core/fallback.js'
+import { Application, Assets, type Texture } from 'pixi.js'
+import { ENV, makePerfGuard } from './runtime/environment'
+import { PointerState } from './input/pointer'
+import { Cursor } from './input/cursor'
+import { Stage } from './graphics/stage'
+import { AudioEngine } from './audio/engine'
+import { Director } from './sequence/director'
+import { Boot } from './sequence/boot'
+import { renderFallback } from './fallback'
+
+declare global {
+  interface Window {
+    __chsys?: {
+      app: Application
+      stage: Stage
+      audio: AudioEngine
+      director: Director
+      ENV: typeof ENV
+    }
+  }
+}
 
 const TAU = Math.PI * 2
 
-async function loadFonts() {
+async function loadFonts(): Promise<void> {
   if (!document.fonts) return
   const needed = [
     "700 64px 'Clash Display'",
@@ -23,11 +34,11 @@ async function loadFonts() {
   try {
     await Promise.all(needed.map((f) => document.fonts.load(f)))
     await document.fonts.ready
-  } catch (e) {  }
+  } catch {}
 }
 
-async function main() {
-  const ui = document.getElementById('ui')
+async function main(): Promise<void> {
+  const ui = document.getElementById('ui')!
 
   if (!ENV.webgl || ENV.reducedMotion) {
     renderFallback(ui)
@@ -39,7 +50,7 @@ async function main() {
 
   const app = new Application()
   await app.init({
-    canvas: document.getElementById('stage'),
+    canvas: document.getElementById('stage') as HTMLCanvasElement,
     preference: 'webgl',
     antialias: false,
     resolution: ENV.dprClamp,
@@ -49,27 +60,29 @@ async function main() {
     resizeTo: window,
   })
 
-  let portrait
+  let portrait: Texture
   try {
     portrait = await Assets.load(`${import.meta.env.BASE_URL}assets/niki.png`)
-  } catch (e) {
-    renderFallback(ui); document.documentElement.classList.add('reduced', 'adapted'); return
+  } catch {
+    renderFallback(ui)
+    document.documentElement.classList.add('reduced', 'adapted')
+    return
   }
 
-  const pointer = new PointerState(ENV)
+  const pointer = new PointerState()
   const stage = new Stage(app, ENV, pointer, portrait)
   stage.grainIntensity = ENV.grain * 0.075
-  const audio = new AudioEngine(ENV)
+  const audio = new AudioEngine()
   const cursor = new Cursor(ENV, pointer)
-  const director = new Director({ ui, stage, audio, pointer, cursor, env: ENV })
-  const boot = new Boot({ ui, stage, audio, pointer, director, env: ENV })
+  const director = new Director({ ui, stage, audio })
+  const boot = new Boot({ ui, stage, audio, pointer, director })
 
   boot.run()
 
   let t = 0
   const guard = makePerfGuard((level) => {
     if (level === 1) stage.grainIntensity = ENV.grain * 0.05
-    if (level === 2 && stage.particleLayer) stage.particleLayer.visible = false
+    if (level === 2) stage.particleLayer.visible = false
   })
 
   app.ticker.add((ticker) => {
@@ -78,7 +91,7 @@ async function main() {
     const breath = Math.sin(t * 0.4 * TAU)
     pointer.sample()
     audio.setBreath(breath)
-    audio.tickReactive(pointer.smooth, pointer.vel, director.busy)
+    audio.tickReactive(pointer.smooth)
     stage.update(t, breath)
     director.parallax(pointer)
     cursor.update()
@@ -87,7 +100,8 @@ async function main() {
 
   window.addEventListener('resize', () => stage.resize())
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) audio.suspend(); else audio.resume()
+    if (document.hidden) audio.suspend()
+    else audio.resume()
   })
 
   window.__chsys = { app, stage, audio, director, ENV }
