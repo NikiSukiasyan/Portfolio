@@ -1,14 +1,43 @@
 import gsap from 'gsap'
-import { IDENTITY } from '../content.js'
+import { IDENTITY } from '../data/content'
+import type { Stage } from '../graphics/stage'
+import type { AudioEngine } from '../audio/engine'
+import type { PointerState } from '../input/pointer'
+import type { Director } from './director'
+
+interface BootContext {
+  ui: HTMLElement
+  stage: Stage
+  audio: AudioEngine
+  pointer: PointerState
+  director: Director
+}
+
+const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms))
 
 export class Boot {
-  constructor({ ui, stage, audio, pointer, director, env }) {
-    this.ui = ui; this.stage = stage; this.audio = audio
-    this.pointer = pointer; this.director = director; this.env = env
-    this.unlocked = false
+  private readonly ui: HTMLElement
+  private readonly stage: Stage
+  private readonly audio: AudioEngine
+  private readonly pointer: PointerState
+  private readonly director: Director
+
+  private unlocked = false
+  private gate!: HTMLDivElement
+  private logEl!: HTMLElement
+  private bar!: HTMLElement
+  private prompt!: HTMLElement
+  private fallbackTimer = 0
+
+  constructor({ ui, stage, audio, pointer, director }: BootContext) {
+    this.ui = ui
+    this.stage = stage
+    this.audio = audio
+    this.pointer = pointer
+    this.director = director
   }
 
-  run() {
+  run(): void {
     const gate = document.createElement('div')
     gate.className = 'gate'
     gate.innerHTML = `
@@ -22,51 +51,49 @@ export class Boot {
       </div>`
     this.ui.appendChild(gate)
     this.gate = gate
-    this.logEl = gate.querySelector('.gate__log')
-    this.bar = gate.querySelector('.gate__bar')
-    this.prompt = gate.querySelector('.gate__prompt')
+    this.logEl = gate.querySelector('.gate__log') as HTMLElement
+    this.bar = gate.querySelector('.gate__bar') as HTMLElement
+    this.prompt = gate.querySelector('.gate__prompt') as HTMLElement
 
-    this._typeLog().then(() => {
+    this.typeLog().then(() => {
       gsap.to(this.bar, { width: '100%', duration: 0.7, ease: 'power1.inOut' })
       gsap.to(this.prompt, { opacity: 1, duration: 0.6, delay: 0.55, ease: 'power2.out' })
     })
 
-    const fire = (e) => {
+    const fire = () => {
       if (this.unlocked) return
       this.unlocked = true
-
       this.audio.start()
-      this._enter()
+      this.enter()
     }
     gate.addEventListener('pointerdown', fire)
-    window.addEventListener('keydown', (e) => { if (e.key === 'Enter') fire(e) }, { once: false })
+    window.addEventListener('keydown', (e) => { if (e.key === 'Enter') fire() })
   }
 
-  async _typeLog() {
+  private async typeLog(): Promise<void> {
     for (const line of IDENTITY.bootLog) {
       const row = document.createElement('div')
       row.className = 'gate__line'
       this.logEl.appendChild(row)
-      await this._typeInto(row, line)
-      this.audio && this.audio.blip && this.audio.blip(120)
+      await this.typeInto(row, line)
       await wait(70)
     }
   }
 
-  _typeInto(row, text) {
-    return new Promise((res) => {
+  private typeInto(row: HTMLElement, text: string): Promise<void> {
+    return new Promise((resolve) => {
       let i = 0
       const tick = () => {
         row.textContent = text.slice(0, i) + (i < text.length ? '▮' : '')
         i++
         if (i <= text.length) setTimeout(tick, 11)
-        else { row.textContent = text; res() }
+        else { row.textContent = text; resolve() }
       }
       tick()
     })
   }
 
-  _enter() {
+  private enter(): void {
     document.documentElement.classList.add('booted')
     this.audio.glitch()
     const tl = gsap.timeline()
@@ -76,26 +103,21 @@ export class Boot {
     gsap.to(this.stage.photoFilter.uniforms, { uReveal: 0.9, duration: 1.6, ease: 'power2.out', delay: 0.1 })
 
     tl.add(() => this.director.enterIdentity(), 0.35)
-
-    tl.add(() => this._armAdapt(), 0.6)
+    tl.add(() => this.armAdapt(), 0.6)
   }
 
-  _armAdapt() {
+  private armAdapt(): void {
     this.pointer.moved = false
     let fired = false
     const go = () => {
       if (fired) return
       fired = true
       this.pointer.onFirstMove = null
-      clearTimeout(this._fallback)
+      clearTimeout(this.fallbackTimer)
       this.director.adapt()
     }
     this.pointer.onFirstMove = go
-
-    this._fallback = setTimeout(go, 2800)
-
+    this.fallbackTimer = window.setTimeout(go, 2800)
     document.documentElement.classList.add('await-move')
   }
 }
-
-const wait = (ms) => new Promise((r) => setTimeout(r, ms))

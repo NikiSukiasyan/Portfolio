@@ -1,15 +1,49 @@
 export const PALETTE = {
-  pitch:    0x0a0a0c,
+  pitch: 0x0a0a0c,
   concrete: 0x16181d,
-  bone:     0xece6d9,
-  ash:      0x767b85,
-  hazard:   0xff4a1c,
-  chameleon:0x2be3b0,
-  cyan:     0x14d6ff,
-  magenta:  0xff1e5a,
+  bone: 0xece6d9,
+  ash: 0x767b85,
+  hazard: 0xff4a1c,
+  chameleon: 0x2be3b0,
+  cyan: 0x14d6ff,
+  magenta: 0xff1e5a,
+} as const
+
+export type AudioMode = 'aeolian' | 'tense' | 'add9' | 'major'
+
+export interface Project {
+  n: string
+  key: string
+  name: string
+  company: string
+  period: string
+  role: string
+  title: string
+  desc: string
+  points: string[]
+  skills: string[]
+  accent: number
+  mode: AudioMode
+  root: number
+  ka?: string
 }
 
-export const hex = (n) => '#' + n.toString(16).padStart(6, '0')
+export interface Employment {
+  company: string
+  role: string
+  period: string
+}
+
+export interface Locale {
+  en: string
+  native: string
+}
+
+export interface Certification {
+  name: string
+  issuer: string
+  date: string
+}
 
 export const IDENTITY = {
   name: 'NIKI SUKIASYAN',
@@ -31,9 +65,9 @@ export const IDENTITY = {
     'audio: SYNTHWAVE / sci-fi v6 · loaded',
     'audio: LOCKED — gesture required',
   ],
-}
+} as const
 
-export const PROJECTS = [
+export const PROJECTS: Project[] = [
   {
     n: '01', key: 'rompetrol', name: 'Rompetrol Mobile Backend', company: 're:soft',
     period: 'Feb 2026 — Present', role: 'Backend Developer',
@@ -114,32 +148,32 @@ export const PROJECTS = [
   },
 ]
 
-export const EMPLOYMENT = [
+export const EMPLOYMENT: Employment[] = [
   { company: 'Re:Soft', role: 'Full-Stack Developer', period: 'Oct 2021 — Present' },
   { company: 'Hotcard', role: 'Back-End Developer', period: 'Jan 2026 — Present' },
   { company: 'BNB Holding · Binebi.ge', role: 'Full-Stack Developer', period: 'Oct 2023 — Jan 2026' },
   { company: 'Re:Educate', role: 'Lecturer — Front-End & Modern UI', period: 'Apr 2023 — Jun 2026' },
 ]
 
-export const STACK = {
+export const STACK: Record<'FOUNDATION' | 'SURFACE' | 'MEMORY' | 'SHIP', string[]> = {
   FOUNDATION: ['PHP', 'Laravel', 'Node.js', 'Nest.js'],
-  SURFACE:    ['JavaScript', 'TypeScript', 'React', 'Next.js'],
-  MEMORY:     ['PostgreSQL', 'MySQL', 'SQL', 'Redis'],
-  SHIP:       ['AWS', 'Docker', 'Git'],
+  SURFACE: ['JavaScript', 'TypeScript', 'React', 'Next.js'],
+  MEMORY: ['PostgreSQL', 'MySQL', 'SQL', 'Redis'],
+  SHIP: ['AWS', 'Docker', 'Git'],
 }
 
 export const STACK_FRAME =
   'Read the stack as four instincts, not a checklist — a foundation he builds in, a surface he composes on, a memory he keeps fast, and ground he ships from.'
 
-export const LOCALES = [
-  { en: 'Georgian',  native: 'ქართული' },
-  { en: 'English',   native: 'English' },
-  { en: 'Russian',   native: 'Русский' },
-  { en: 'German',    native: 'Deutsch' },
-  { en: 'Armenian',  native: 'Հայերեն' },
+export const LOCALES: Locale[] = [
+  { en: 'Georgian', native: 'ქართული' },
+  { en: 'English', native: 'English' },
+  { en: 'Russian', native: 'Русский' },
+  { en: 'German', native: 'Deutsch' },
+  { en: 'Armenian', native: 'Հայերեն' },
 ]
 
-export const CERTS = [
+export const CERTS: Certification[] = [
   { name: 'Fundamentals of Prompt Engineering with Claude', issuer: 'AWS', date: 'May 2026' },
   { name: 'Amazon Bedrock — Getting Started', issuer: 'AWS', date: 'May 2026' },
 ]
@@ -148,7 +182,7 @@ export const EDUCATION = {
   degree: 'BSc Computer Science',
   school: 'Caucasus University, Tbilisi',
   period: 'Sept 2023 — Jun 2027',
-}
+} as const
 
 export const CONTACT = {
   email: 'sukiasyanniki2005@gmail.com',
@@ -162,6 +196,6 @@ export const CONTACT = {
   closing: 'Roll credits, or open a channel.',
   live: '— the line is live.',
   signoff: 'ნიკი სუკიასიანი',
-}
+} as const
 
 export const EGG = 'ქამელეონი'
