@@ -13,6 +13,7 @@ export function renderFallback(ui: HTMLElement): void {
   wrap.className = 'dossier is-open is-static'
   wrap.innerHTML = `
     <div class="d-inner">
+      <button class="d-close d-retry mono" type="button">↻ TRY THE ANIMATED VERSION</button>
       <h1>NIKI SUKIASYAN</h1>
       <p class="d-role">Full-Stack Developer · Tbilisi, Georgia · 5+ years</p>
       <p class="d-contact">${CONTACT.email} · ${CONTACT.phone} · ${CONTACT.linkedin} · ${CONTACT.github}</p>
@@ -25,4 +26,9 @@ export function renderFallback(ui: HTMLElement): void {
       <h2>Education</h2><p>${EDUCATION.degree} — ${EDUCATION.school}, ${EDUCATION.period}</p>
     </div>`
   ui.appendChild(wrap)
+  wrap.querySelector('.d-retry')!.addEventListener('click', () => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('film', '1')
+    window.location.replace(url.toString())
+  })
 }

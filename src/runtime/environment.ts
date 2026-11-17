@@ -15,6 +15,7 @@ export interface Environment extends Profile {
   coarse: boolean
   dprClamp: number
   webgl: boolean
+  forceFilm: boolean
 }
 
 const matches = (query: string): boolean =>
@@ -43,7 +44,10 @@ const PROFILES: Record<Tier, Profile> = {
 function detectWebGL(): boolean {
   try {
     const canvas = document.createElement('canvas')
-    return !!(canvas.getContext('webgl2') || canvas.getContext('webgl'))
+    const gl = (canvas.getContext('webgl2') || canvas.getContext('webgl')) as WebGLRenderingContext | null
+    if (!gl) return false
+    gl.getExtension('WEBGL_lose_context')?.loseContext()
+    return true
   } catch {
     return false
   }
@@ -59,6 +63,7 @@ export const ENV: Environment = {
   ...profile,
   dprClamp: Math.min(window.devicePixelRatio || 1, profile.dpr),
   webgl: detectWebGL(),
+  forceFilm: new URLSearchParams(window.location.search).has('film'),
 }
 
 export function makePerfGuard(onDegrade: (level: number) => void): (dtMs: number) => void {

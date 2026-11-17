@@ -37,35 +37,59 @@ async function loadFonts(): Promise<void> {
   } catch {}
 }
 
+function fallback(ui: HTMLElement, app?: Application): void {
+  try {
+    app?.destroy()
+  } catch {}
+  renderFallback(ui)
+  document.documentElement.classList.add('reduced', 'adapted')
+}
+
+async function loadPortrait(attempts = 3): Promise<Texture> {
+  const url = `${import.meta.env.BASE_URL}assets/niki.png`
+  for (let i = 1; ; i++) {
+    try {
+      return await Assets.load(url)
+    } catch (err) {
+      if (i >= attempts) throw err
+      await Assets.unload(url).catch(() => {})
+      await new Promise((r) => setTimeout(r, 400 * i))
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const ui = document.getElementById('ui')!
 
-  if (!ENV.webgl || ENV.reducedMotion) {
-    renderFallback(ui)
-    document.documentElement.classList.add('reduced', 'adapted')
+  if (!ENV.webgl || (ENV.reducedMotion && !ENV.forceFilm)) {
+    fallback(ui)
     return
   }
 
   await loadFonts()
 
   const app = new Application()
-  await app.init({
-    canvas: document.getElementById('stage') as HTMLCanvasElement,
-    preference: 'webgl',
-    antialias: false,
-    resolution: ENV.dprClamp,
-    autoDensity: true,
-    powerPreference: 'high-performance',
-    background: 0x0a0a0c,
-    resizeTo: window,
-  })
+  try {
+    await app.init({
+      canvas: document.getElementById('stage') as HTMLCanvasElement,
+      preference: 'webgl',
+      antialias: false,
+      resolution: ENV.dprClamp,
+      autoDensity: true,
+      powerPreference: 'high-performance',
+      background: 0x0a0a0c,
+      resizeTo: window,
+    })
+  } catch {
+    fallback(ui)
+    return
+  }
 
   let portrait: Texture
   try {
-    portrait = await Assets.load(`${import.meta.env.BASE_URL}assets/niki.png`)
+    portrait = await loadPortrait()
   } catch {
-    renderFallback(ui)
-    document.documentElement.classList.add('reduced', 'adapted')
+    fallback(ui, app)
     return
   }
 
